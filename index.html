@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<!-- saved from url=(0012)about:srcdoc -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+				
+				<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				<style>
+					body {
+						background-color: white; /* Ensure the iframe has a white background */
+					}
+				</style>
+				<script>
+					var Z_CDN_WHITELIST = [
+						'cdn.jsdelivr.net',
+						'cdnjs.cloudflare.com',
+						'cdn.tailwindcss.com',
+						'unpkg.com',
+						'fonts.googleapis.com',
+						'd3js.org',
+						'cdn.babylonjs.com',
+						'html2canvas.hertzen.com',
+						'code.jquery.com',
+						'cdn.datatables.net',
+						'kit.fontawesome.com',
+						'code.createjs.com',
+						'cdn.plot.ly',
+						'fonts.gstatic.com',
+						'www.rgraph.net',
+						'api.mapbox.com',
+						'polyfill.io',
+						'cdn.quilljs.com',
+						'picsum.photos',
+						'esm.sh'
+					];
+
+					function z_isUrlInWhitelist(url) {
+						if (!url || typeof url !== 'string') {
+							return false;
+						}
+						try {
+							const urlObj = new URL(url);
+							const hostname = urlObj.hostname;
+							return Z_CDN_WHITELIST.some(domain => hostname === domain);
+						} catch (e) {
+							return false;
+						}
+					}
+
+						function z_proxyCdnUrl(url) {
+						if (!url || !url.startsWith('http')) {
+							return url;
+						}
+							if (!z_isUrlInWhitelist(url)) {
+							return url;
+						}
+						if (!url.startsWith('https://artifacts-cdn.chatglm.site/')) {
+							return 'https://artifacts-cdn.chatglm.site/' + url;
+						}
+						return url;
+					}
+					
+					// 增强版外部链接拦截 - 适合放在模板字符串中
+					document.addEventListener('click', function (ev) {
+						try {
+							const anchor = ev.target?.closest?.('a[href]') || null;
+							if (!anchor) return;
+
+							let href = anchor.getAttribute('href')?.trim() || '';
+							if (!href) return;
+
+							if (href.startsWith('javascript:')) return;
+
+							// 新需求：href="#" 的链接完全阻止跳转和任何行为
+							if (href === '#') {
+								ev.preventDefault();
+								return;
+							}
+
+							// 处理其他内部锚点（如 #about、#contact 等）
+							if (href.startsWith('#')) {
+								const rawId = href.slice(1);
+								if (!rawId) return;
+
+								const id = decodeURIComponent(rawId);
+								const target = 
+									document.getElementById(id) ||
+									document.querySelector('a[name="' + id.replace(/"/g, '\"') + '"]') ||
+									document.querySelector('[name="' + id.replace(/"/g, '\"') + '"]');
+
+								if (target && target.scrollIntoView) {
+									ev.preventDefault();
+									try {
+										history.pushState(null, '', href);
+									} catch (e) {}
+									target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+								}
+								return;
+							}
+
+							// 处理外部链接
+							let url;
+							try {
+								url = new URL(href, window.location.href);
+							} catch (e) {
+								return;
+							}
+
+							if (url.protocol !== 'http:' && url.protocol !== 'https:') return;
+
+							const isExternal = url.hostname !== window.location.hostname;
+
+							if (isExternal || anchor.getAttribute('target') === '_blank') {
+								ev.preventDefault();
+								window.open(url.toString(), '_blank', 'noopener,noreferrer');
+							}
+
+						} catch (e) {
+							// 出错时不阻止默认行为
+						}
+					}, true);
+
+					// 1. 暴力清除函数：从 DOM 层面抹除 onclick 属性
+					var Z_removeInlineOnclick = function () {
+						// 专门锁定 href="#" 且带有 onclick 的 a 标签
+						const targetedLinks = document.querySelectorAll('a[href="#"][onclick]');
+						for (let i = 0; i < targetedLinks.length; i++) {
+							targetedLinks[i].removeAttribute('onclick');
+							targetedLinks[i].onclick = null; // 确保 JS 层的赋值也被清理
+						}
+					};
+					// 3. 动态监测：防止页面通过异步加载重新生成带 onclick 的元素
+					var z_observer = new MutationObserver(function () {
+						Z_removeInlineOnclick();
+					});
+
+					z_observer.observe(document.documentElement, {
+						childList: true,
+						subtree: true,
+						attributes: true,
+						attributeFilter: ['onclick']
+					});
+
+					// 4. 初始化执行一次
+					Z_removeInlineOnclick();
+
+					const Z_rawCreateElement = document.createElement;
+
+					document.createElement = function (tagName, ...args) {
+						const el = Z_rawCreateElement.call(this, tagName, ...args);
+
+						if (tagName.toLowerCase() === 'script') {
+							const rawSetAttribute = el.setAttribute;
+							const rawGetAttribute = el.getAttribute;
+							let srcValue = '';
+							
+							el.setAttribute = function (name, value) {
+								if (name === 'src' && typeof value === 'string') {
+									value = z_proxyCdnUrl(value);
+									srcValue = value;
+								}
+								return rawSetAttribute.call(this, name, value);
+							};
+
+							Object.defineProperty(el, 'src', {
+								get: function() {
+									return srcValue || rawGetAttribute.call(this, 'src') || '';
+								},
+								set: function(value) {
+									if (typeof value === 'string') {
+										srcValue = z_proxyCdnUrl(value);
+										rawSetAttribute.call(this, 'src', srcValue);
+									} else {
+										srcValue = value;
+									}
+								},
+								configurable: true,
+								enumerable: true
+							});
+						}
+
+						if (tagName.toLowerCase() === 'link') {
+							const rawSetAttribute = el.setAttribute;
+							const rawGetAttribute = el.getAttribute;
+							let hrefValue = '';
+							
+							el.setAttribute = function (name, value) {
+								if (name === 'href' && typeof value === 'string') {
+									value = z_proxyCdnUrl(value);
+									hrefValue = value;
+								}
+								return rawSetAttribute.call(this, name, value);
+							};
+
+							Object.defineProperty(el, 'href', {
+								get: function() {
+									return hrefValue || rawGetAttribute.call(this, 'href') || '';
+								},
+								set: function(value) {
+									if (typeof value === 'string') {
+										hrefValue = z_proxyCdnUrl(value);
+										rawSetAttribute.call(this, 'href', hrefValue);
+									} else {
+										hrefValue = value;
+									}
+								},
+								configurable: true,
+								enumerable: true
+							});
+						}
+
+						return el;
+					};
+
+					const Z_OriginalXMLHttpRequest = window.XMLHttpRequest;
+					window.XMLHttpRequest = function (...args) {
+						const xhr = new Z_OriginalXMLHttpRequest(...args);
+						const rawOpen = xhr.open;
+
+						xhr.open = function (method, url, ...rest) {
+							if (typeof url === 'string') {
+								const methodUpper = (method || '').toUpperCase();
+								if (methodUpper === 'GET' && z_isUrlInWhitelist(url)) {
+									url = z_proxyCdnUrl(url);
+								}
+							}
+							return rawOpen.call(this, method, url, ...rest);
+						};
+
+						return xhr;
+					};
+
+					window.XMLHttpRequest.prototype = Z_OriginalXMLHttpRequest.prototype;
+					Object.setPrototypeOf(window.XMLHttpRequest, Z_OriginalXMLHttpRequest);
+
+					const z_originalFetch = window.fetch;
+					window.fetch = async function (...args) {
+						if (args.length > 0) {
+							let url = '';
+							let method = 'GET';
+							
+							if (typeof args[0] === 'string') {
+								url = args[0];
+								if (args[1] && args[1].method) {
+									method = args[1].method.toUpperCase();
+								}
+								if (method === 'GET' && z_isUrlInWhitelist(url)) {
+									args[0] = z_proxyCdnUrl(url);
+								}
+							} else if (args[0] instanceof Request) {
+								const originalUrl = args[0].url;
+								method = (args[0].method || 'GET').toUpperCase();
+								if (method === 'GET' && z_isUrlInWhitelist(originalUrl)) {
+									const proxiedUrl = z_proxyCdnUrl(originalUrl);
+									if (proxiedUrl !== originalUrl) {
+										args[0] = new Request(proxiedUrl, args[0]);
+									}
+								}
+							}
+						}
+						return z_originalFetch.apply(this, args);
+					};
+				</script>
+			</head>
+			<body>
+				
+
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#F5F0E8">
+<title>Прогноз роста стоимости · Юлия Загуменнова</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://artifacts-cdn.chatglm.site/https://fonts.googleapis.com">
+<link rel="preconnect" href="https://artifacts-cdn.chatglm.site/https://fonts.gstatic.com" crossorigin="">
+<link href="https://artifacts-cdn.chatglm.site/https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,500;1,600&amp;family=Manrope:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F0E8; --ink:#23211B; --muted:#8A8272; --soft:#B4AB98;
+  --line:#E7DFCC; --line-strong:#D6CBB2;
+  --teal:#0D9488; --teal-dark:#0A7D72;
+  --gold:#D4AF37; --gold-deep:#A98629; --err:#B4542F;
+  /* тёмная панель = брендовый бирюзовый, затемнённый (тот же тон, глубина) */
+  --cap:#0D2B28;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:'Manrope',sans-serif;font-size:15px;line-height:1.55;min-height:100vh}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");}
+::selection{background:rgba(13,148,136,.18)}
+.app{position:relative;z-index:1;max-width:520px;margin:0 auto;padding:0 20px calc(24px + env(safe-area-inset-bottom))}
+
+.top{display:flex;align-items:center;justify-content:space-between;padding-top:18px}
+.brand{display:flex;align-items:center;gap:12px}
+.mono{width:42px;height:42px;flex:none;display:flex;align-items:center;justify-content:center;
+  border:1px solid rgba(13,148,136,.45);border-radius:4px;color:var(--teal);
+  font:600 17px 'Cormorant Garamond';letter-spacing:.06em}
+.brand-name{display:block;font-size:12.5px;font-weight:800;letter-spacing:.12em}
+.brand-sub{display:block;font-size:11px;color:var(--muted);letter-spacing:.04em;margin-top:2px}
+.tag{font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  border:1px solid var(--line-strong);border-radius:20px;padding:5px 11px;white-space:nowrap}
+
+.hero{margin-top:36px}
+.kicker{display:flex;align-items:center;gap:12px;font-size:11px;font-weight:800;
+  letter-spacing:.2em;text-transform:uppercase;color:var(--gold-deep)}
+.kicker i{width:26px;height:1px;background:var(--gold)}
+h1{font:600 clamp(34px,9vw,44px)/1.08 'Cormorant Garamond';margin:14px 0 12px}
+h1 em{font-style:italic;color:var(--gold)}
+.lead{font-size:14.5px;color:var(--muted);max-width:42ch}
+
+.sec-t{display:flex;align-items:center;gap:12px;font-size:11px;font-weight:800;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+.sec-t::after{content:'';flex:1;height:1px;background:var(--line)}
+.ctrl{border-bottom:1px solid var(--line-strong);transition:border-color .25s}
+.ctrl:focus-within{border-bottom-color:var(--teal)}
+.ctrl input,.ctrl select{width:100%;border:0;outline:0;background:transparent;
+  font:600 16px/1.4 'Manrope';color:var(--ink);padding:11px 2px;border-radius:0}
+.ctrl input::placeholder{color:var(--soft);font-weight:400}
+.ctrl.select select{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:28px;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%230D9488' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 6px center}
+.ctrl.money{position:relative}
+.ctrl.money input{padding-right:28px}
+.money .rub{position:absolute;right:2px;bottom:12px;color:var(--muted);font-weight:600;pointer-events:none}
+.money.invalid{border-bottom-color:var(--err)}
+.money.shake{animation:shake .32s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:16px 20px;
+  border-radius:12px;border:1px solid transparent;background:var(--teal);color:#FDFBF5;
+  font:700 14.5px 'Manrope';letter-spacing:.02em;cursor:pointer;text-decoration:none;
+  transition:background .2s,color .2s,transform .15s}
+.btn:hover{background:var(--teal-dark)}
+.btn:active{transform:scale(.985)}
+.btn:disabled{opacity:.6;cursor:default}
+.btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.btn svg{width:16px;height:16px}
+.btn.ghost{background:transparent;color:var(--teal);border-color:rgba(13,148,136,.5)}
+.btn.ghost:hover{background:var(--teal);color:#FDFBF5}
+
+.form-sec{margin-top:38px}
+.field{margin-top:22px}
+.field label{display:block;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.hint{margin-top:8px;font-size:12px;color:var(--muted);line-height:1.5}
+.hint.err{display:none;color:var(--err);font-weight:600}
+.hint.err.show{display:block}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.form-sec .btn{margin-top:30px}
+
+.divider{display:flex;align-items:center;gap:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--line)}
+.divider i{width:6px;height:6px;background:var(--gold);transform:rotate(45deg)}
+
+.result{margin-top:44px}
+.result .divider{margin-bottom:30px}
+@keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.rv{opacity:0;animation:fadeUp .6s cubic-bezier(.22,.61,.36,1) forwards}
+.d1{animation-delay:.05s}.d2{animation-delay:.16s}.d3{animation-delay:.27s}
+.d4{animation-delay:.38s}.d5{animation-delay:.49s}.d6{animation-delay:.6s}
+
+.panel{background:var(--cap);border:1px solid rgba(212,175,55,.26);
+  border-radius:18px;padding:24px 22px 22px;color:#E8E1D1}
+.p-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:2px}
+.panel .rv-label{color:#9BB3AD}
+.p-when{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);white-space:nowrap}
+.rv-label{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.rv-big{font:600 clamp(40px,11vw,52px)/1.12 'Cormorant Garamond';color:var(--gold);margin:10px 0 14px;font-variant-numeric:lining-nums}
+.rv-big .cur{font-size:.58em;margin-left:4px}
+.rv-sub{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;font-size:13.5px;color:var(--muted)}
+.rv-sub b{font-weight:800;font-variant-numeric:tabular-nums}
+.panel .rv-sub{color:#8FA9A3}
+.panel .rv-sub b{color:var(--gold)}
+.panel .rv-sub .sep{background:#23433E}
+.sep{width:3px;height:3px;border-radius:50%;background:var(--line-strong)}
+
+.chart-block{margin-top:36px}
+.chart-wrap{position:relative;margin-top:16px}
+#chart{width:100%;height:232px;display:block;touch-action:pan-y}
+.tip{position:absolute;z-index:5;transform:translate(-50%,-100%);background:#23211B;color:#F3EEE4;
+  border-radius:9px;padding:7px 11px;font-size:12px;line-height:1.45;pointer-events:none;
+  white-space:nowrap;box-shadow:0 8px 20px rgba(35,33,27,.25)}
+.tip b{display:block;font-size:12.5px}
+.tip span{color:#CFC7B4;font-size:11px}
+
+.table-sec{margin-top:34px}
+.tbl{width:100%;border-collapse:collapse;margin-top:14px;font-variant-numeric:tabular-nums}
+.tbl th{font-size:10.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;padding:0 0 10px}
+.tbl th:nth-child(2),.tbl th:nth-child(3),.tbl td:nth-child(2),.tbl td:nth-child(3){text-align:right}
+.tbl td{padding:11px 0;border-top:1px solid var(--line);font-size:14px}
+.tbl td:first-child{color:var(--muted);font-weight:600;font-size:13px}
+.tbl td:nth-child(2){font-weight:700}
+.tbl td.pos{color:var(--teal);font-weight:600;font-size:13px}
+.tbl tfoot td{border-top:1px solid var(--line-strong);padding:13px 0 0;font-size:13px;font-weight:800;color:var(--ink)}
+.tbl .tot{color:var(--gold-deep);text-align:right;white-space:nowrap}
+.dash{color:var(--soft)}
+
+.verdict{margin-top:32px;border-left:2px solid var(--teal);padding:3px 0 3px 16px}
+.badge{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;font-weight:800;
+  letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
+.badge i{width:7px;height:7px;border-radius:50%}
+.badge.b-high i{background:var(--teal)}
+.badge.b-mid i{background:var(--gold)}
+.badge.b-low i{background:#A79E8A}
+.verdict p{font-size:14px}
+
+.final{display:flex;gap:12px;align-items:flex-start;margin-top:32px;border:1px solid var(--line);
+  border-radius:14px;padding:16px 18px;background:rgba(255,255,255,.35)}
+.final svg{flex:none;width:18px;height:18px;color:var(--teal);margin-top:2px}
+.final p{font-size:12.5px;color:var(--muted);line-height:1.6}
+.cta{margin-top:22px}
+
+.foot{margin-top:52px}
+.foot .btn{margin-top:26px}
+.fb{margin-top:24px;text-align:center;font-size:11px;font-weight:800;letter-spacing:.14em;color:var(--muted);text-transform:uppercase}
+.fn{margin-top:6px;text-align:center;font-size:11px;color:var(--soft)}
+</style>
+
+
+<div class="app">
+
+  <header class="top">
+    <div class="brand">
+      <div class="mono">ЮЗ</div>
+      <div>
+        <span class="brand-name">ЮЛИЯ ЗАГУМЁННОВА</span>
+        <span class="brand-sub">Недвижимость и капитал</span>
+      </div>
+    </div>
+    <span class="tag">Mini App · демо</span>
+  </header>
+
+  <section class="hero">
+    <div class="kicker"><i></i>Инвестиционная аналитика</div>
+    <h1>Прогноз роста <em>стоимости</em></h1>
+    <p class="lead">Ориентировочная динамика цены объекта на горизонте 3–5 лет — по рыночным коэффициентам курортных локаций Юга России.</p>
+  </section>
+
+  <section class="form-sec">
+    <div class="sec-t">Параметры объекта</div>
+
+    <div class="field">
+      <label for="city">Город / локация</label>
+      <div class="ctrl select">
+        <select id="city">
+          <option>Сочи</option>
+          <option>Анапа</option>
+          <option>Новороссийск</option>
+          <option>Геленджик</option>
+          <option>Туапсе</option>
+          <option>Другой город</option>
+        </select>
+      </div>
+      <p class="hint" id="marketNote">Исторический рост рынка ≈ 8 % в год · коэффициент типа ×1</p>
+    </div>
+
+    <div class="field">
+      <label for="price">Текущая стоимость объекта</label>
+      <div class="ctrl money" id="moneyBox">
+        <input id="price" inputmode="numeric" autocomplete="off" placeholder="10 000 000">
+        <span class="rub">₽</span>
+      </div>
+      <p class="hint err" id="priceErr">Укажите стоимость объекта</p>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label for="type">Тип объекта</label>
+        <div class="ctrl select">
+          <select id="type">
+            <option>Квартира</option>
+            <option>Апартаменты</option>
+            <option>Дом</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="years">Горизонт прогноза</label>
+        <div class="ctrl select">
+          <select id="years">
+            <option value="3">3 года</option>
+            <option value="5">5 лет</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn" id="calcBtn">
+      <span id="calcLabel">Пересчитать прогноз</span>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"></path></svg>
+    </button>
+  </section>
+
+  <section class="result" id="result">
+    <div class="divider rv d1" style=""><i></i></div>
+
+    <div class="panel rv d1" style="">
+      <div class="p-top">
+        <span class="rv-label">Прогнозируемая стоимость</span>
+        <span class="p-when">через <span id="rYearsLbl">3 года</span></span>
+      </div>
+      <div class="rv-big" id="rFV">14&nbsp;569&nbsp;451 <span class="cur">₽</span></div>
+      <div class="rv-sub">
+        <span><b id="rGain">+3&nbsp;003&nbsp;751 ₽</b> прирост</span>
+        <span class="sep"></span>
+        <span><b id="rPct">+26,0 %</b> итого</span>
+        <span class="sep"></span>
+        <span><b id="rAvg">8,0 %</b> в год</span>
+      </div>
+    </div>
+
+    <div class="chart-block rv d2" style="">
+      <div class="sec-t">Динамика стоимости<span style="display:inline-flex;align-items:center;gap:7px;font-size:11px;letter-spacing:.04em;text-transform:none;font-weight:600;color:var(--muted)"><i style="width:18px;height:2px;background:var(--teal)"></i>прогноз</span></div>
+      <div class="chart-wrap">
+        <canvas id="chart" width="600" height="290"></canvas>
+        <div class="tip" id="tip" hidden=""></div>
+      </div>
+    </div>
+
+    <div class="table-sec rv d3" style="">
+      <div class="sec-t">Расчёт по годам</div>
+      <table class="tbl">
+        <thead><tr><th>Год</th><th>Стоимость</th><th>Прирост за год</th></tr></thead>
+        <tbody id="tbody"><tr><td>Сейчас</td><td>11&nbsp;565&nbsp;700 ₽</td><td class="pos"><span class="dash">—</span></td></tr><tr><td>Год 1</td><td>12&nbsp;490&nbsp;956 ₽</td><td class="pos">+925&nbsp;256</td></tr><tr><td>Год 2</td><td>13&nbsp;490&nbsp;232 ₽</td><td class="pos">+999&nbsp;276</td></tr><tr><td>Год 3</td><td>14&nbsp;569&nbsp;451 ₽</td><td class="pos">+1&nbsp;079&nbsp;219</td></tr></tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2" id="tTotalLbl">Итого за 3 года</td>
+            <td class="tot" id="tTotalVal">+3&nbsp;003&nbsp;751 ₽ · +26,0 %</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <div class="verdict rv d4" style="">
+      <span class="badge b-mid" id="vBadge"><i></i><span id="vBadgeTxt">Умеренный рост</span></span>
+      <p id="vText">Умеренный рост. Такой объект подходит для долгосрочного инвестора.</p>
+    </div>
+
+    <div class="final rv d5" style="">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><line x1="12" y1="11" x2="12" y2="16.2"></line><line x1="12" y1="7.4" x2="12" y2="7.9"></line></svg>
+      <p>Это демо-прогноз на основе средних рыночных коэффициентов за <span id="dataWin">2020–2025</span> гг. Полный анализ включает: сравнение с конкурентами, анализ инфраструктуры, прогноз арендного дохода и риски.</p>
+    </div>
+
+    <a class="btn cta rv d6" href="https://t.me/YZagumennova" target="_blank" rel="noopener" style="">Заказать полный разбор</a>
+  </section>
+
+  <footer class="foot">
+    <div class="divider"><i></i></div>
+    <a class="btn ghost" href="https://t.me/YZagumennova" target="_blank" rel="noopener">Заказать полный инвестиционный разбор</a>
+    <p class="fb">Юлия Загуменнова · Недвижимость и капитал</p>
+    <p class="fn">© <span id="yr">2026</span> · Демо-расчёт не является офертой или индивидуальной инвестиционной рекомендацией</p>
+  </footer>
+</div>
+
+<script>
+/* ── Telegram Mini App ── */
+try{
+  const wa = window.Telegram && window.Telegram.WebApp;
+  if(wa){ wa.ready(); wa.expand();
+    wa.setHeaderColor && wa.setHeaderColor('#F5F0E8');
+    wa.setBackgroundColor && wa.setBackgroundColor('#F5F0E8'); }
+}catch(e){}
+
+/* ── Рыночные коэффициенты ──
+   Окно калибровки данных из ТЗ. При перекалибровке меняется ТОЛЬКО
+   эта константа и ставки ниже — все упоминания окна обновятся сами. */
+const DATA_WINDOW = '2020–2025';
+const locationRates = {
+  'Сочи':0.08, 'Анапа':0.09, 'Новороссийск':0.07,
+  'Геленджик':0.08, 'Туапсе':0.06, 'Другой город':0.05
+};
+const typeMultipliers = { 'Квартира':1.0, 'Апартаменты':1.1, 'Дом':0.95 };
+
+/* ── Утилиты ── */
+const $ = id => document.getElementById(id);
+const fmtR   = n => Math.round(n).toLocaleString('ru-RU') + ' ₽';
+const fmtN   = n => Math.round(n).toLocaleString('ru-RU');
+const fmtPct = (n,d=1) => n.toLocaleString('ru-RU',{minimumFractionDigits:1,maximumFractionDigits:d}) + ' %';
+function fmtShort(n){
+  if(n >= 1e12) return (n/1e12).toLocaleString('ru-RU',{maximumFractionDigits:2}) + ' трлн';
+  if(n >= 1e9)  return (n/1e9).toLocaleString('ru-RU',{maximumFractionDigits:2}) + ' млрд';
+  if(n >= 1e6)  return (n/1e6).toLocaleString('ru-RU',{maximumFractionDigits:2}) + ' млн';
+  if(n >= 1e3)  return Math.round(n/1e3).toLocaleString('ru-RU') + ' тыс';
+  return fmtN(n);
+}
+
+const citySel=$('city'), typeSel=$('type'), yearsSel=$('years'), priceInp=$('price'),
+      note=$('marketNote'), priceErr=$('priceErr'), moneyBox=$('moneyBox'),
+      calcBtn=$('calcBtn'), calcLabel=$('calcLabel'), result=$('result'),
+      rYearsLbl=$('rYearsLbl'), rFV=$('rFV'), rGain=$('rGain'), rPct=$('rPct'), rAvg=$('rAvg'),
+      tbody=$('tbody'), vBadge=$('vBadge'), vBadgeTxt=$('vBadgeTxt'), vText=$('vText'),
+      tip=$('tip'), canvas=$('chart'), ctx=canvas.getContext('2d');
+
+/* Автогод в футере и окно данных — из единой константы */
+$('yr').textContent = new Date().getFullYear();
+$('dataWin').textContent = DATA_WINDOW;
+
+/* ── Живые подсказки под селектами ── */
+function updateNote(){
+  const c = citySel.value, t = typeSel.value;
+  const extra = c === 'Другой город' ? ' · консервативная оценка' : '';
+  note.textContent = 'Исторический рост рынка ≈ ' +
+    (locationRates[c]*100).toLocaleString('ru-RU') + ' % в год' + extra +
+    ' · коэффициент типа ×' + typeMultipliers[t].toLocaleString('ru-RU',{maximumFractionDigits:2});
+}
+citySel.addEventListener('change', updateNote);
+typeSel.addEventListener('change', updateNote);
+updateNote();
+
+/* ── Маска стоимости ── */
+priceInp.addEventListener('input', () => {
+  const digits = priceInp.value.replace(/\D/g,'').slice(0,12);
+  priceInp.value = digits ? Number(digits).toLocaleString('ru-RU') : '';
+  priceErr.classList.remove('show');
+  moneyBox.classList.remove('invalid');
+});
+
+/* ── Расчёт ──
+   Математика: стоимость_через_N = PV × (1+r)^N, где r = ставка локации × множитель типа.
+   Отображаемые суммы — производные от округлённых значений, поэтому
+   колонка «Прирост за год» гарантированно сходится с «Итого» без расхождений. */
+function compute(){
+  const pv = Number(priceInp.value.replace(/\D/g,''));
+  if(!pv || pv <= 0){
+    priceErr.classList.add('show');
+    moneyBox.classList.add('invalid');
+    moneyBox.classList.remove('shake'); void moneyBox.offsetWidth; moneyBox.classList.add('shake');
+    priceInp.focus();
+    return null;
+  }
+  const city = citySel.value, type = typeSel.value, years = +yearsSel.value;
+  const r = locationRates[city] * typeMultipliers[type];
+  const rows = [{year:0, value:pv, delta:0}];
+  let v = pv;
+  for(let i=1; i<=years; i++){
+    const prev = v;
+    v *= (1+r);
+    rows.push({year:i, value:v, delta:Math.round(v) - Math.round(prev)});
+  }
+  const fv = rows[rows.length-1].value;
+  return { pv, fv, r, years, rows,
+           gain: Math.round(fv) - Math.round(pv),
+           gainPct: (fv-pv)/pv*100 };
+}
+
+/* ── Счётчик главной цифры ──
+   Форматируем только число: знак ₽ добавляется ровно один раз (span.cur). */
+let countRaf = null;
+function countUp(el, from, to, dur){
+  if(countRaf) cancelAnimationFrame(countRaf);
+  const t0 = performance.now();
+  (function step(now){
+    const k = Math.min(1,(now-t0)/dur), e = 1-Math.pow(1-k,3);
+    el.innerHTML = Math.round(from+(to-from)*e).toLocaleString('ru-RU') + ' <span class="cur">₽</span>';
+    if(k < 1) countRaf = requestAnimationFrame(step);
+  })(t0);
+}
+
+/* ── Вывод результата ── */
+function render(d){
+  result.hidden = false;
+  result.querySelectorAll('.rv').forEach(el=>{
+    el.style.animation='none'; void el.offsetWidth; el.style.animation='';
+  });
+  rYearsLbl.textContent = d.years === 3 ? '3 года' : '5 лет';
+  countUp(rFV, d.pv, d.fv, 1250);
+  rGain.textContent = '+' + fmtR(d.gain);
+  rPct.textContent  = '+' + fmtPct(d.gainPct);
+  rAvg.textContent  = fmtPct(d.r*100, 2);
+
+  tbody.innerHTML = d.rows.map(row=>{
+    const y  = row.year === 0 ? 'Сейчас' : 'Год ' + row.year;
+    const dl = row.year === 0 ? '<span class="dash">—</span>' : '+' + fmtN(row.delta);
+    return `<tr><td>${y}</td><td>${fmtR(row.value)}</td><td class="pos">${dl}</td></tr>`;
+  }).join('');
+
+  $('tTotalLbl').textContent = 'Итого за ' + (d.years === 3 ? '3 года' : '5 лет');
+  $('tTotalVal').textContent = '+' + fmtR(d.gain) + ' · +' + fmtPct(d.gainPct);
+
+  let bCls, bTxt, txt;
+  if(d.gainPct > 40){
+    bCls='b-high'; bTxt='Высокий потенциал';
+    txt='Локация показывает высокий потенциал. Но помните: прогноз основан на исторических данных ' + DATA_WINDOW + ' гг. и не учитывает экономические циклы, изменение ключевой ставки и инфраструктурные риски.';
+  } else if(d.gainPct >= 20){
+    bCls='b-mid'; bTxt='Умеренный рост';
+    txt='Умеренный рост. Такой объект подходит для долгосрочного инвестора.';
+  } else {
+    bCls='b-low'; bTxt='Низкий потенциал';
+    txt='Низкий потенциал роста. Рекомендуем рассмотреть другие локации или типы объектов.';
+  }
+  vBadge.className = 'badge ' + bCls;
+  vBadgeTxt.textContent = bTxt;
+  vText.textContent = txt;
+
+  setSeries(d.rows.map(r => ({year:r.year, value:r.value, delta:r.delta})));
+  setTimeout(()=> result.scrollIntoView({behavior:'smooth', block:'start'}), 80);
+}
+
+calcBtn.addEventListener('click', ()=>{
+  const data = compute();
+  if(!data) return;
+  calcBtn.disabled = true;
+  calcLabel.textContent = 'Расчёт…';
+  setTimeout(()=>{
+    render(data);
+    calcBtn.disabled = false;
+    calcLabel.textContent = 'Пересчитать прогноз';
+  }, 700);
+});
+
+/* ── График на Canvas ── */
+let series=[], anim=0, activeIdx=-1, raf=null, W=0, H=0;
+const PAD = {l:18, r:18, t:38, b:30};
+
+function sizeCanvas(){
+  const dpr = window.devicePixelRatio || 1;
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+function layout(){
+  const n = series.length;
+  const min = series[0].value, max = series[n-1].value;
+  const span = (max-min) || max*0.1;
+  const lo = min - span*0.15, hi = max + span*0.12;
+  const X = i => PAD.l + (W-PAD.l-PAD.r) * (n>1 ? i/(n-1) : 0);
+  const Y = v => PAD.t + (H-PAD.t-PAD.b) * (1-(v-lo)/(hi-lo));
+  return {n, X, Y};
+}
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  if(!series.length || W === 0) return;
+  const {n, X, Y} = layout();
+
+  ctx.strokeStyle = '#EAE2D0'; ctx.lineWidth = 1;
+  for(let g=0; g<4; g++){
+    const gy = Math.round(PAD.t + (H-PAD.t-PAD.b)*g/3) + .5;
+    ctx.beginPath(); ctx.moveTo(PAD.l,gy); ctx.lineTo(W-PAD.r,gy); ctx.stroke();
+  }
+  const t = anim*(n-1);
+  const full = Math.min(n-1, Math.floor(t));
+  const pts = [];
+  for(let i=0; i<=full; i++) pts.push([X(i), Y(series[i].value)]);
+  if(full < n-1 && t-full > 0){
+    const i = full, f = t-full;
+    pts.push([X(i)+(X(i+1)-X(i))*f, Y(series[i].value)+(Y(series[i+1].value)-Y(series[i].value))*f]);
+  }
+  if(pts.length > 1){
+    ctx.beginPath();
+    pts.forEach((p,i)=> i ? ctx.lineTo(p[0],p[1]) : ctx.moveTo(p[0],p[1]));
+    ctx.lineTo(pts[pts.length-1][0], H-PAD.b);
+    ctx.lineTo(pts[0][0], H-PAD.b);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(13,148,136,.07)'; ctx.fill();
+
+    ctx.beginPath();
+    pts.forEach((p,i)=> i ? ctx.lineTo(p[0],p[1]) : ctx.moveTo(p[0],p[1]));
+    ctx.strokeStyle = '#0D9488'; ctx.lineWidth = 2.2;
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke();
+  }
+  for(let i=0; i<n; i++){
+    const a = Math.max(0, Math.min(1, t-i+1));
+    if(a <= 0) continue;
+    const x=X(i), y=Y(series[i].value);
+    const isFirst = i===0, isLast = i===n-1, act = i===activeIdx;
+    ctx.globalAlpha = a;
+    if(isLast){
+      ctx.beginPath(); ctx.arc(x,y, act?7:5, 0,7);
+      ctx.fillStyle='#D4AF37'; ctx.fill();
+      ctx.lineWidth=2; ctx.strokeStyle='#F5F0E8'; ctx.stroke();
+    } else if(isFirst || act){
+      ctx.beginPath(); ctx.arc(x,y, act?5.5:4.5, 0,7);
+      ctx.fillStyle='#F5F0E8'; ctx.fill();
+      ctx.lineWidth=2; ctx.strokeStyle='#0D9488'; ctx.stroke();
+    } else {
+      ctx.beginPath(); ctx.arc(x,y,3.2,0,7);
+      ctx.fillStyle='#0D9488'; ctx.fill();
+    }
+    ctx.textAlign = i===0 ? 'left' : (isLast ? 'right' : 'center');
+    const lx = i===0 ? x-2 : (isLast ? x+2 : x);
+    ctx.font = isLast ? '700 12px Manrope' : (isFirst ? '600 11px Manrope' : '500 10.5px Manrope');
+    ctx.fillStyle = isLast ? '#A98629' : (isFirst ? '#8A8272' : '#6E6759');
+    ctx.fillText(fmtShort(series[i].value), lx, y-12);
+    ctx.font = '500 10.5px Manrope'; ctx.fillStyle = '#8A8272';
+    ctx.fillText(series[i].year===0 ? 'Сейчас' : '+'+series[i].year, lx, H-10);
+    ctx.globalAlpha = 1;
+  }
+}
+function setSeries(rows){
+  series = rows; activeIdx = -1; tip.hidden = true;
+  requestAnimationFrame(()=>{ sizeCanvas(); animateChart(); });
+}
+function animateChart(){
+  if(raf) cancelAnimationFrame(raf);
+  anim = 0;
+  const t0 = performance.now(), dur = 1150;
+  raf = requestAnimationFrame(function step(now){
+    const k = Math.min(1,(now-t0)/dur);
+    anim = k<.5 ? 4*k*k*k : 1-Math.pow(-2*k+2,3)/2;
+    draw();
+    if(k<1) raf = requestAnimationFrame(step);
+    else { anim = 1; raf = null; draw(); }
+  });
+}
+
+/* ── Подсказки на графике (hover / tap) ── */
+function showTip(i){
+  const {X, Y} = layout();
+  const p = series[i], x = X(i), y = Y(p.value);
+  tip.innerHTML = '<b>' + fmtR(p.value) + '</b><span>' +
+    (p.year===0 ? 'Сейчас' : 'Год '+p.year) +
+    (i>0 ? ' · +' + fmtN(p.delta) + ' ₽' : '') + '</span>';
+  tip.hidden = false;
+  const half = tip.offsetWidth/2 + 6;
+  tip.style.left = Math.max(half, Math.min(W-half, x)) + 'px';
+  tip.style.top  = (y-12) + 'px';
+}
+function pick(e){
+  if(!series.length) return -1;
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const {n, X} = layout();
+  let best=-1, bd=1e9;
+  for(let i=0; i<n; i++){ const d=Math.abs(X(i)-x); if(d<bd){bd=d; best=i;} }
+  return bd <= 28 ? best : -1;
+}
+function setPoint(i){
+  if(i === activeIdx) return;
+  activeIdx = i; draw();
+  if(i >= 0) showTip(i); else tip.hidden = true;
+}
+canvas.addEventListener('mousemove', e => setPoint(pick(e)));
+canvas.addEventListener('mouseleave', () => setPoint(-1));
+canvas.addEventListener('touchstart', e => setPoint(pick(e.touches[0])), {passive:true});
+canvas.addEventListener('touchmove',  e => setPoint(pick(e.touches[0])), {passive:true});
+canvas.addEventListener('touchend', () => setTimeout(()=> setPoint(-1), 1200), {passive:true});
+window.addEventListener('resize', () => {
+  if(result.hidden || !series.length) return;
+  tip.hidden = true; activeIdx = -1;
+  sizeCanvas(); draw();
+});
+</script>
+
+
+			
+		
+</body></html>
